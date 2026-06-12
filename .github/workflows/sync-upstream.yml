@@ -1,0 +1,50 @@
+name: Sync Upstream & Trigger Deploy
+
+on:
+  schedule:
+    # 采用 Cron 表达式，这里设定每天国际标准时间 (UTC) 00:00（北京时间早上 8:00）自动执行
+    - cron: '0 0 * * *'
+  workflow_dispatch: # 保持手动触发按钮，方便随时测试
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      # 第 1 步：检出当前仓库的代码
+      - name: Checkout Fork
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0 # 获取所有历史记录以确保顺利合并
+
+      # 第 2 步：配置 Git 用户信息（用于产生合并提交）
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      # 第 3 步：添加上游仓库并同步
+      - name: Sync with Upstream
+        env:
+          UPSTREAM_URL: "https://github.com/Zephyruso/zashboard.git"
+          UPSTREAM_BRANCH: "main"
+          MY_BRANCH: "main"
+        run: |
+          # 添加上游远程仓库
+          git remote add upstream $UPSTREAM_URL
+          
+          # 获取上游分支持续更新
+          git fetch upstream $UPSTREAM_BRANCH
+          
+          # 切换到你自己的主分支
+          git checkout $MY_BRANCH
+          
+          # 尝试将上游分支合并到本地主分支
+          if git merge upstream/$UPSTREAM_BRANCH --no-edit; then
+            echo "Successfully merged upstream changes."
+            # 推送合并后的代码回你自己的 GitHub 仓库
+            git push origin $MY_BRANCH
+          else
+            echo "Conflict detected! Automatic merge failed. Manual intervention required."
+            exit 1
+          fi
