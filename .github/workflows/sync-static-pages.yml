@@ -13,14 +13,24 @@ jobs:
   sync-gh-pages:
     runs-on: ubuntu-latest
     steps:
-      # 第 1 步：拉取原作者编译好的静态分支
-      - name: Fetch Upstream Static Branch
+      # 第 1 步：拉取原作者编译好的静态分支，并重置为你的域名
+      - name: Fetch Upstream Static Branch & Set Domain
         run: |
-          git init static-repo
+          # 采用 clone 方式更方便追踪文件改动
+          git clone --branch gh-pages --single-branch https://github.com/Zephyruso/zashboard.git static-repo
           cd static-repo
-          git remote add upstream https://github.com/Zephyruso/zashboard.git
-          git fetch upstream gh-pages:upstream-target
-          git checkout upstream-target
+          
+          # 1. 删除原作者域名，写入自定义域名
+          rm -f CNAME
+          echo "zashboard.river-z.de" > CNAME
+          
+          # 配置 Git 机器人准备提交
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # 记录修改
+          git add -A
+          git commit -m "chore: custom CNAME for fork deployment" || echo "No changes to commit"
 
       # 第 2 步：将静态代码推送到你自己的仓库分支
       - name: Push to My Repository
@@ -28,4 +38,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd static-repo
-          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git upstream-target:gh-pages --force
+          # 强制推送到你自己的 gh-pages 分支
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:gh-pages --force
